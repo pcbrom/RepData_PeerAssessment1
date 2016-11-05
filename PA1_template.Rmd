@@ -1,25 +1,148 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: ' Activity Monitoring Data'
+author: "BROM, P. C."
+date: "5 de novembro de 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a [Fitbit](http://www.fitbit.com/), [Nike Fuelband](http://www.nike.com/us/en_us/c/nikeplus-fuelband), or [Jawbone Up](https://jawbone.com/up). These type of devices are part of the “quantified self” movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The data for this assignment can be downloaded from the course web site:
+
+Dataset: [Activity monitoring data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) [52K]
+
+The variables included in this dataset are:
+
+* **steps**: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+* **date**: The date on which the measurement was taken in YYYY-MM-DD format
+* **interval**: Identifier for the 5-minute interval in which measurement was taken
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
 
 ## Loading and preprocessing the data
 
+```{r _1, echo=TRUE, fig.align='center', message=FALSE}
 
+# set wd
+setwd("/home/pcbrom/Dropbox/Trabalho e Estudo/Cursos Livres/Reproducible Research/CurseProject")
+
+# unzip file
+unzip("activity.zip")
+
+# read data
+db = read.csv("activity.csv")
+
+# see str
+str(db)
+
+# convert date to Date
+db$date = as.Date(db$date, "%Y-%m-%d")
+
+# view summary
+require(knitr)
+kable(summary(db), caption = "Summary of Data", align = "c")
+```
 
 ## What is mean total number of steps taken per day?
 
+```{r _2, echo=TRUE, fig.align='center', message=FALSE}
+library(Hmisc)
 
+# aggregate steps by date
+totSteps = tapply(db$steps, db$date, FUN = sum, na.rm = T)
+
+# view the geometry of distribuction
+p1 = qplot(totSteps, binwidth = 1000, 
+           main = "Total Number Of Steps Taken\nEach Day", 
+           xlab = "Total of Steps", ylab = "Frequency")
+p1
+
+# get mean
+mean(totSteps, na.rm = T)
+
+# get median
+median(totSteps, na.rm = T)
+```
 
 ## What is the average daily activity pattern?
 
+```{r _3, echo=TRUE, fig.align='center', message=FALSE}
+# get averages
+averages = aggregate(x = list(steps = db$steps), 
+                     by = list(interval = db$interval), 
+                     FUN = mean, na.rm = T)
 
+# view geometry
+qplot(interval, steps, data = averages, xlab = "5 minute interval", 
+      ylab = "Average number of steps taken", main = "Steps vs. Interval", 
+      geom = "line")
+
+# max value
+kable(averages[which.max(averages$steps), ], align = "c", caption = "Max Value")
+```
 
 ## Imputing missing values
 
+Before the allocation should evaluate the distribution density to whether it is appropriate to use the average or median. See Figure: Total Number Of Steps Taken Each Day (original date) we have a mixture of distributions and, if we consider the mode of the distribution with the highest average, then we will get something fairly symmetrical, ie, it is recommended imputation by mean.
 
+```{r _4, echo=TRUE, fig.align='center', message=FALSE}
+# rapid density view
+d1 = qplot(totSteps, geom = "density", 
+           xlab = "Total of Steps", ylab = "Density",
+           main = "Total Number Of Steps Taken\nEach Day (original data)")
+d1
+
+# create secundary db
+db2 = db
+
+# impute data
+db2$steps = impute(db$steps, mean)
+
+# aggregate steps by date
+totSteps2 = tapply(db2$steps, db2$date, FUN = sum)
+
+# view the geometry of distribuction
+p2 = qplot(totSteps2, binwidth = 1000, 
+           xlab = "Total of Steps", ylab = "Frequency",
+           main = "Total Number Of Steps Taken\nEach Day (imputed by mean)")
+
+# density comparison
+d2 = qplot(totSteps2, geom = "density", 
+           xlab = "Total of Steps", ylab = "Density",
+           main = "Total Number Of Steps Taken\nEach Day (imputed by mean)")
+
+require(gridExtra)
+grid.arrange(p1, p2, d1, d2, ncol = 2, nrow = 2)
+
+# get mean
+mean(totSteps2)
+
+# get median
+median(totSteps2)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+In fact we have a visible difference between Weekday and Weekend.
+
+```{r _5, echo=TRUE, fig.align='center', message=FALSE}
+# create weekdays
+db2$weekdays = weekdays(db2$date)
+
+# ceate dayType
+db2$dayType = ifelse(db2$weekdays == "domingo" | db2$weekdays == "sábado",
+                     "Weekend", "Weekday")
+
+averages2 = aggregate(steps ~ interval + dayType, mean, data = db2)
+
+qplot(interval, steps, data = averages2, geom = "line", facets = . ~ dayType,
+      xlab = "5 minute interval", ylab = "avarage number of steps")
+
+```
